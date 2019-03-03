@@ -4,7 +4,9 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 
+void mainMenu();
 void sha256();
 
 //section 4.2.1
@@ -22,10 +24,38 @@ uint32_t SIG_1(uint32_t x);
 
 int main(int argc, char *argv[]){
 	//Call the sha256 Method from main.
-	sha256();
+	mainMenu();
 	return 0;
 }
 
+
+void mainMenu(){
+	int input = 0;
+
+	printf("\n1.\tFile\n");
+	printf("2.\tMessage\n");
+	printf("3.\tExit\n");
+	printf("Choose an Option: ");
+	scanf("%d", &input);
+
+	switch(input){
+	case 1:
+		//Read in a file and hash the file.
+
+		break;
+	case 2:
+		//Read in a message from console and Hash it.
+
+		break;
+	case 3:
+		//Exit the Program
+		exit(1);
+		break;
+	default:
+		printf("Invalid Selection\n");
+		mainMenu();
+	}
+}
 
 void sha256(){
 	
