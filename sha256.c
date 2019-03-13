@@ -22,10 +22,42 @@ uint32_t Ch(uint32_t x, uint32_t y, uint32_t z);
 uint32_t SIG_0(uint32_t x);
 uint32_t SIG_1(uint32_t x);
 
+void readFile();
+
+union msgblock{
+	uint8_t 	e[64];
+	uint32_t 	t[16];
+	uint64_t 	s[8];
+};
+
 int main(int argc, char *argv[]){
-	//Call the sha256 Method from main.
+	
+	readFile(argv);
 	mainMenu();
+
 	return 0;
+}
+
+void readFile(char *argv[]){
+	FILE* f;
+	
+	union msgblock M;
+
+	uint64_t nobytes;
+
+	// read in a file, taken from the input when the program is run.
+	f = fopen(argv[1], "r");
+
+	// while we have not reached the end of the file
+	while (!feof(f)){
+
+		nobytes = fread(M.e, 1, 64, f);
+		printf("%llu\n", nobytes);
+
+	}
+	
+
+	fclose(f);
 }
 
 
