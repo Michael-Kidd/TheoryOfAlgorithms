@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-void mainMenu();
+void mainMenu(char *argv[]);
 void sha256();
 
 //section 4.2.1
@@ -22,7 +22,7 @@ uint32_t Ch(uint32_t x, uint32_t y, uint32_t z);
 uint32_t SIG_0(uint32_t x);
 uint32_t SIG_1(uint32_t x);
 
-void readFile();
+void readFile(char *argv[]);
 
 union msgblock{
 	uint8_t 	e[64];
@@ -32,9 +32,8 @@ union msgblock{
 
 int main(int argc, char *argv[]){
 	
-	readFile(argv);
-	mainMenu();
-
+	mainMenu(argv);
+	
 	return 0;
 }
 
@@ -44,24 +43,44 @@ void readFile(char *argv[]){
 	union msgblock M;
 
 	uint64_t nobytes;
+	uint64_t nobits = 0;
 
 	// read in a file, taken from the input when the program is run.
 	f = fopen(argv[1], "r");
 
 	// while we have not reached the end of the file
-	while (!feof(f)){
+	while ( !feof(f) ){
 
 		nobytes = fread(M.e, 1, 64, f);
-		printf("%llu\n", nobytes);
+		nobits += (nobytes * 8);
+	
+		if(nobytes < 56){
+			//make the right most bit a 1 and zero the rest
+			//adding 1
+			M.e[nobytes] = 0x80;
 
+			//get the last 8 bytes
+			while(nobytes < 56){
+				nobytes += 1;
+				//set all bytes to 0
+				M.e[nobytes] = 0x00;
+			}
+
+			//set the last block of s as the value of nobits
+			M.s[7] = nobits;
+
+
+		}
+
+		printf("%llu\n", nobytes);
 	}
 	
-
+	//close the file reader
 	fclose(f);
 }
 
 
-void mainMenu(){
+void mainMenu(char *argv[]){
 	int input = 0;
 
 	printf("\n1.\tFile\n");
@@ -73,11 +92,12 @@ void mainMenu(){
 	switch(input){
 	case 1:
 		//Read in a file and hash the file.
-
+		readFile(argv);
+		mainMenu(argv);
 		break;
 	case 2:
 		//Read in a message from console and Hash it.
-
+		mainMenu(argv);
 		break;
 	case 3:
 		//Exit the Program
@@ -85,7 +105,7 @@ void mainMenu(){
 		break;
 	default:
 		printf("Invalid Selection\n");
-		mainMenu();
+		mainMenu(argv);
 	}
 }
 
