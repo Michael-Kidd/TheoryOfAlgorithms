@@ -22,63 +22,12 @@ uint32_t Ch(uint32_t x, uint32_t y, uint32_t z);
 uint32_t SIG_0(uint32_t x);
 uint32_t SIG_1(uint32_t x);
 
-void readFile(char *argv[]);
-
-union msgblock{
-	uint8_t 	e[64];
-	uint32_t 	t[16];
-	uint64_t 	s[8];
-};
-
 int main(int argc, char *argv[]){
 	
 	mainMenu(argv);
 	
 	return 0;
 }
-
-void readFile(char *argv[]){
-	FILE* f;
-	
-	union msgblock M;
-
-	uint64_t nobytes;
-	uint64_t nobits = 0;
-
-	// read in a file, taken from the input when the program is run.
-	f = fopen(argv[1], "r");
-
-	// while we have not reached the end of the file
-	while ( !feof(f) ){
-
-		nobytes = fread(M.e, 1, 64, f);
-		nobits += (nobytes * 8);
-	
-		if(nobytes < 56){
-			//make the right most bit a 1 and zero the rest
-			//adding 1
-			M.e[nobytes] = 0x80;
-
-			//get the last 8 bytes
-			while(nobytes < 56){
-				nobytes += 1;
-				//set all bytes to 0
-				M.e[nobytes] = 0x00;
-			}
-
-			//set the last block of s as the value of nobits
-			M.s[7] = nobits;
-
-
-		}
-
-		printf("%llu\n", nobytes);
-	}
-	
-	//close the file reader
-	fclose(f);
-}
-
 
 void mainMenu(char *argv[]){
 	int input = 0;
