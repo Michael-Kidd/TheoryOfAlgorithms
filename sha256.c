@@ -13,7 +13,8 @@ union msgblock{
 };
 
 void mainMenu(char *argv[]);
-void sha256(FILE *f);
+void sha256(FILE *file);
+uint64_t swap_uint64(uint64_t val);
 
 //section 4.2.1
 uint32_t sig0(uint32_t x);
@@ -31,7 +32,7 @@ uint32_t SIG_1(uint32_t x);
 //flag for position within the file being read
 enum status {READ, PAD0, PAD1, FINISH};
 
-int nextmsgblock(FILE *file, union msgblock *M, enum status *S, int *nobits);
+int nextmsgblock(FILE *file, union msgblock *M, enum status *S, uint64_t *nobits);
 
 int main(int argc, char *argv[]){
 	
@@ -42,32 +43,27 @@ int main(int argc, char *argv[]){
 
 void mainMenu(char *argv[]){
 	
-	FILE *f;
+	FILE *file;
 	int input = 0;
 
-	printf("\n1.\tFile\n");
-	printf("2.\tMessage\n");
-	printf("3.\tExit\n");
+	printf("\n1.\tHash File\n");
+	printf("2.\tExit\n");
 	printf("Choose an Option: ");
 	scanf("%d", &input);
 	
 	switch(input){
 	case 1:
 		//open file given from console
-		f = fopen(argv[1], "r");
+		file = fopen(argv[1], "r");
 		//Should error check
 		//run the secure hash algorithm
-		sha256(f);
+		sha256(file);
 		//close the file
-		fclose(f);
+		fclose(file);
 		//start program code here
 		mainMenu(argv);
 		break;
 	case 2:
-		//Read in a message from console and Hash it.
-		mainMenu(argv);
-		break;
-	case 3:
 		//Exit the Program
 		exit(1);
 		break;
@@ -119,7 +115,7 @@ void sha256(FILE *file){
 
 	int t;
 
-	while (nextmsgblock(file, *M, *S, *nobits)){
+	while (nextmsgblock(file, &M, &S, &nobits)){
 	
 		//from page 22, W[t] = M[t] for 0 <= t <= 15
 		for(t = 0; t < 16; t++){
@@ -160,9 +156,14 @@ void sha256(FILE *file){
 		H[6] = g + H[7];
 		H[7] = h + H[8];
 	}
+
+	printf("%X %X %X %X %X %X %X %X", H[0], H[1], H[2], H[3], H[4], H[5], H[6], H[7]);
 }
 
-int nextmsgblock(FILE *f, union msgblock *M, enum status *S, int *nobits){
+int nextmsgblock(FILE *file, union msgblock *M, enum status *S, uint64_t *nobits){
+	
+	uint64_t test = swap_uint64(*nobits);
+//	nobits = &test;
 
 	//Number of bytes we get from file
 	uint64_t nobytes;
@@ -192,7 +193,8 @@ int nextmsgblock(FILE *f, union msgblock *M, enum status *S, int *nobits){
 	}
 	
 	//if we get down here, then we still havent finished reading the file
-	nobytes = fread(M->e, 1, 64, f);
+	nobytes = fread(M->e, 1, 64, file);
+
 	//Keep track of the number of bytes we have read
 	nobits += (nobytes * 8);
 	//If we read less than 56 bytes, we can put all padding in this block
@@ -220,7 +222,7 @@ int nextmsgblock(FILE *f, union msgblock *M, enum status *S, int *nobits){
 			M->e[nobytes] = 0x00;
 		}
 	//otherwise check if we are at the end of the file	
-	} else if(feof(f)){
+	} else if(feof(file)){
 		//tell S that we need a message block with all the padding.
 		*S = PAD1;
 	}
@@ -263,4 +265,10 @@ uint32_t SIG_0(uint32_t x){
 
 uint32_t SIG_1(uint32_t x){
 	return(rotr(6, x) ^ rotr(11, x) ^ rotr(25, x));
+}
+
+uint64_t swap_uint64(uint64_t val){
+	val = ((val << 8) & 0xFF00FF00FF00FF00ULL) | ((val >> 8) & 0x00FF00FF00FF00FFULL);
+	val = ((val << 16) & 0xFF00FF00FF00FF00ULL) | ((val >> 16) & 0x00FF00FF00FF00FFULL);
+	return (val << 32) | (val >>32);
 }
