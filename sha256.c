@@ -11,8 +11,7 @@ union msgblock{
 	uint64_t s[8];
 };
 
-void mainMenu(char *argv[]);
-void sha256(FILE *file, uint32_t H[8]);
+uint32_t* sha256(FILE *fi, uint32_t H[8]);
 
 uint64_t swap_uint64(uint64_t val);
 
@@ -26,8 +25,8 @@ uint32_t shr(uint32_t n, uint32_t x);
 uint32_t Maj(uint32_t x, uint32_t y, uint32_t z);
 uint32_t Ch(uint32_t x, uint32_t y, uint32_t z);
 
-uint32_t SIG0(uint32_t x);
-uint32_t SIG1(uint32_t x);
+uint32_t SIG_0(uint32_t x);
+uint32_t SIG_1(uint32_t x);
 
 //flag for position within the file being read
 enum status {READ, PAD0, PAD1, FINISH};
@@ -39,30 +38,34 @@ int main(int argc, char *argv[]){
 	//Hash Value from section 6.2
 	//values come from section 5.3.3
 	uint32_t H[8]= {
-		  0x6a09e667
-		, 0xbb67ae85
-		, 0x3c6ef372
-		, 0xa54ff53a
-		, 0x510e527f
-		, 0x1f83d9ab
-		, 0x5be0cd19
+		  0x6a09e667,
+		  0xbb67ae85,
+		  0x3c6ef372,
+		  0xa54ff53a,
+		  0x510e527f,
+		  0x9b05688c,
+		  0x1f83d9ab,
+		  0x5be0cd19
 	};
 
-	FILE* file;
+	FILE* fi;
 	//open file given from console
-	file = fopen(argv[1], "r");
+	fi = fopen(argv[1], "r");
 	//Should error check
 	//run the secure hash algorithm
-	sha256(file, H);
+	sha256(fi, H);
 	//close the file
-	fclose(file);
+	fclose(fi);
+
+	printf("%x %x %x %x %x %x %x %x\n", H[0], H[1], H[2], H[3], H[4], H[5], H[6], H[7]);
 	
 	return 0;
 }
 
 
-void sha256(FILE *file, uint32_t H[8]){
-	
+uint32_t* sha256(FILE *fi, uint32_t H[8]){
+
+
 	//The current message block
 	union msgblock M;
 	//number of bits read from file
@@ -91,7 +94,7 @@ void sha256(FILE *file, uint32_t H[8]){
 
 	int i, t;
 
-	while (nextmsgblock(file, &M, &S, &nobits)){
+	while (nextmsgblock(fi, &M, &S, &nobits)){
 	
 		//from page 22, W[t] = M[t] for 0 <= t <= 15
 		for(t = 0; t < 16; t++){
@@ -109,8 +112,8 @@ void sha256(FILE *file, uint32_t H[8]){
 	
 		//step 3.
 		for(t = 0; t < 64; t++){
-			T1 = h +SIG1(e) + Ch(e, f, g) + K[t] + W[t];
-			T2 = SIG0(a) + Maj(a,b,c);
+			T1 = h +SIG_1(e) + Ch(e, f, g) + K[t] + W[t];
+			T2 = SIG_0(a) + Maj(a,b,c);
 
 			h = g;
 			g = f;
@@ -133,18 +136,18 @@ void sha256(FILE *file, uint32_t H[8]){
 		H[7] = h + H[7];
 	}
 
-	printf("%x %x %x %x %x %x %x %x\n", H[0], H[1], H[2], H[3], H[4], H[5], H[6], H[7]);
+
+	return H;
+
 }
 
-int nextmsgblock(FILE *file, union msgblock *M, enum status *S, uint64_t *nobits){
-	
-//	uint64_t test = swap_uint64(*nobits);
-//	nobits = &test;
+int nextmsgblock(FILE *fi, union msgblock *M, enum status *S, uint64_t *nobits){
 
 	//Number of bytes we get from file
 	uint64_t nobytes;
 
-	int i, t;
+	int i;
+
 	//if all messages blocks done
 	if (*S == FINISH)
 		return 0;
@@ -169,16 +172,16 @@ int nextmsgblock(FILE *file, union msgblock *M, enum status *S, uint64_t *nobits
 	}
 	
 	//if we get down here, then we still havent finished reading the file
-	nobytes = fread(M->e, 1, 64, file);
+	nobytes = fread(M->e, 1, 64, fi);
 
 	//Keep track of the number of bytes we have read
-	nobits += (nobytes * 8);
+	*nobits = *nobits + (nobytes * 8);
 	//If we read less than 56 bytes, we can put all padding in this block
 	if(nobytes < 56){
 		M->e[nobytes] = 0x80;
 		//get the last 8 bytes
 		while(nobytes < 56){
-			nobytes += 1;
+			nobytes = nobytes + 1;
 			//set all bytes to 0
 			M->e[nobytes] = 0x00;
 		}
@@ -198,7 +201,7 @@ int nextmsgblock(FILE *file, union msgblock *M, enum status *S, uint64_t *nobits
 			M->e[nobytes] = 0x00;
 		}
 	//otherwise check if we are at the end of the file	
-	} else if(feof(file)){
+	} else if(feof(fi)){
 		//tell S that we need a message block with all the padding.
 		*S = PAD1;
 	}
@@ -209,7 +212,7 @@ int nextmsgblock(FILE *file, union msgblock *M, enum status *S, uint64_t *nobits
 
 uint32_t sig0(uint32_t x){
 	//See section 3.2 and 4.2.1
-	return (rotr(7, x) ^ rotr(18, x ^ shr(3, x)));
+	return (rotr(7, x) ^ rotr(18, x) ^ shr(3, x));
 }
 
 uint32_t sig1(uint32_t x){
@@ -224,15 +227,15 @@ uint32_t rotr(uint32_t n, uint32_t x){
 
 //Shift to the right
 uint32_t shr(uint32_t n, uint32_t x){	
-	return (x << n);
+	return (x >> n);
 }
 
 uint32_t Ch(uint32_t x, uint32_t y, uint32_t z){
-	return (x & y) ^ ((!x) & z);
+	return ((x & y) ^ ((!x) & z));
 }
 
 uint32_t Maj(uint32_t x, uint32_t y, uint32_t z){	 
-	return (x & y) ^ (x & z) ^ (y & z);
+	return ((x & y) ^ (x & z) ^ (y & z));
 }
 
 uint32_t SIG_0(uint32_t x){
@@ -241,10 +244,4 @@ uint32_t SIG_0(uint32_t x){
 
 uint32_t SIG_1(uint32_t x){
 	return(rotr(6, x) ^ rotr(11, x) ^ rotr(25, x));
-}
-
-uint64_t swap_uint64(uint64_t val){
-	val = ((val << 8) & 0xFF00FF00FF00FF00ULL) | ((val >> 8) & 0x00FF00FF00FF00FFULL);
-	val = ((val << 16) & 0xFF00FF00FF00FF00ULL) | ((val >> 16) & 0x00FF00FF00FF00FFULL);
-	return (val << 32) | (val >>32);
 }
