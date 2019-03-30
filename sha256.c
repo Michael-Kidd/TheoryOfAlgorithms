@@ -4,7 +4,6 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
 
 union msgblock{
 	uint8_t e[64];
@@ -13,7 +12,8 @@ union msgblock{
 };
 
 void mainMenu(char *argv[]);
-void sha256(FILE *file);
+void sha256(FILE *file, uint32_t H[8]);
+
 uint64_t swap_uint64(uint64_t val);
 
 //section 4.2.1
@@ -26,8 +26,8 @@ uint32_t shr(uint32_t n, uint32_t x);
 uint32_t Maj(uint32_t x, uint32_t y, uint32_t z);
 uint32_t Ch(uint32_t x, uint32_t y, uint32_t z);
 
-uint32_t SIG_0(uint32_t x);
-uint32_t SIG_1(uint32_t x);
+uint32_t SIG0(uint32_t x);
+uint32_t SIG1(uint32_t x);
 
 //flag for position within the file being read
 enum status {READ, PAD0, PAD1, FINISH};
@@ -35,45 +35,33 @@ enum status {READ, PAD0, PAD1, FINISH};
 int nextmsgblock(FILE *file, union msgblock *M, enum status *S, uint64_t *nobits);
 
 int main(int argc, char *argv[]){
-	
-	mainMenu(argv);
+
+	//Hash Value from section 6.2
+	//values come from section 5.3.3
+	uint32_t H[8]= {
+		  0x6a09e667
+		, 0xbb67ae85
+		, 0x3c6ef372
+		, 0xa54ff53a
+		, 0x510e527f
+		, 0x1f83d9ab
+		, 0x5be0cd19
+	};
+
+	FILE* file;
+	//open file given from console
+	file = fopen(argv[1], "r");
+	//Should error check
+	//run the secure hash algorithm
+	sha256(file, H);
+	//close the file
+	fclose(file);
 	
 	return 0;
 }
 
-void mainMenu(char *argv[]){
-	
-	FILE *file;
-	int input = 0;
 
-	printf("\n1.\tHash File\n");
-	printf("2.\tExit\n");
-	printf("Choose an Option: ");
-	scanf("%d", &input);
-	
-	switch(input){
-	case 1:
-		//open file given from console
-		file = fopen(argv[1], "r");
-		//Should error check
-		//run the secure hash algorithm
-		sha256(file);
-		//close the file
-		fclose(file);
-		//start program code here
-		mainMenu(argv);
-		break;
-	case 2:
-		//Exit the Program
-		exit(1);
-		break;
-	default:
-		printf("Invalid Selection\n");
-		mainMenu(argv);
-	}
-}
-
-void sha256(FILE *file){
+void sha256(FILE *file, uint32_t H[8]){
 	
 	//The current message block
 	union msgblock M;
@@ -84,7 +72,7 @@ void sha256(FILE *file){
 
 	// The K constants Defined in section 4.2.2
 	uint32_t K[] = {
-		0x42802f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+		0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
 		0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
 		0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
 		0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
@@ -100,20 +88,8 @@ void sha256(FILE *file){
 	uint32_t a, b, c, d, e, f, g, h;
 	//Two temp variables from section 6.2
 	uint32_t T1, T2;
-	
-	//Hash Value from section 6.2
-	//values come from section 5.3.3
-	uint32_t H[8]= {
-		  0x6a09e667
-		, 0xbb67ae85
-		, 0x3c6ef372
-		, 0xa54ff53a
-		, 0x510e527f
-		, 0x1f83d9ab
-		, 0x5be0cd19
-	};
 
-	int t;
+	int i, t;
 
 	while (nextmsgblock(file, &M, &S, &nobits)){
 	
@@ -133,8 +109,8 @@ void sha256(FILE *file){
 	
 		//step 3.
 		for(t = 0; t < 64; t++){
-			T1 = h +SIG_1(e) + Ch(e, f, g) + K[t] + W[t];
-			T2 = SIG_0(a) + Maj(a,b,c);
+			T1 = h +SIG1(e) + Ch(e, f, g) + K[t] + W[t];
+			T2 = SIG0(a) + Maj(a,b,c);
 
 			h = g;
 			g = f;
@@ -148,27 +124,27 @@ void sha256(FILE *file){
 
 		//step 4
 		H[0] = a + H[0];
-		H[1] = b + H[2];
-		H[2] = c + H[3];
-		H[3] = d + H[4];
-		H[4] = e + H[5];
-		H[5] = f + H[6];
-		H[6] = g + H[7];
-		H[7] = h + H[8];
+		H[1] = b + H[1];
+		H[2] = c + H[2];
+		H[3] = d + H[3];
+		H[4] = e + H[4];
+		H[5] = f + H[5];
+		H[6] = g + H[6];
+		H[7] = h + H[7];
 	}
 
-	printf("%X %X %X %X %X %X %X %X", H[0], H[1], H[2], H[3], H[4], H[5], H[6], H[7]);
+	printf("%x %x %x %x %x %x %x %x\n", H[0], H[1], H[2], H[3], H[4], H[5], H[6], H[7]);
 }
 
 int nextmsgblock(FILE *file, union msgblock *M, enum status *S, uint64_t *nobits){
 	
-	uint64_t test = swap_uint64(*nobits);
+//	uint64_t test = swap_uint64(*nobits);
 //	nobits = &test;
 
 	//Number of bytes we get from file
 	uint64_t nobytes;
 
-	int i;
+	int i, t;
 	//if all messages blocks done
 	if (*S == FINISH)
 		return 0;
