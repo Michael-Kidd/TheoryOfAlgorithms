@@ -84,7 +84,7 @@ when using the Sha256 algorithm we have certain values that start are defined be
 ```c
 //Hash Value from section 6.2
 //values come from section 5.3.3
-uint32_t H[8]= {
+static uint32_t H[8]= {
   0x6a09e667,
   0xbb67ae85,
   0x3c6ef372,
@@ -96,7 +96,7 @@ uint32_t H[8]= {
 };
 
 // The K constants Defined in section 4.2.2
-uint32_t K[] = {
+static uint32_t K[] = {
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
   0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
   0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -108,7 +108,9 @@ uint32_t K[] = {
 };
 ```
 
-When we make a call to the Sha256 function, we passes some variables to the function. In my case I pass the file that we want to hash and the H constants. Then when we call the Hashing function we will need a message block so that we can pad the file when needed.
+I originally was passing these variables to the functions but then changed to make these fields static as to allow them access from a class level, Malloc could have been another option here or have the Sha256 function return the array, but this method seemed more straight forward. I have tested the same test files in order to make sure that the output hasn't been changed by doing this. I also tested it against two other students code to ensure the same result.
+
+When we call the Hashing function we will need a message block so that we can pad the file when needed.
 
 ```c
 
