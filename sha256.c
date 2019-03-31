@@ -17,7 +17,7 @@ union msgblock{
 	uint64_t s[8];
 };
 
-uint32_t* sha256(FILE *fi, uint32_t H[8]);
+uint32_t * sha256(FILE *fi, uint32_t H[8]);
 
 uint64_t swap_uint64(uint64_t val);
 
@@ -37,12 +37,14 @@ uint32_t SIG_1(uint32_t x);
 //flag for position within the file being read
 enum status {READ, PAD0, PAD1, FINISH};
 
-int nextmsgblock(FILE *file, union msgblock *M, enum status *S, uint64_t *nobits);
+int nextmsgblock(FILE *fi, union msgblock *M, enum status *S, uint64_t *nobits);
 
 void printFiletoScreen(FILE* fi);
 int getFileSize(FILE* fi);
 
 int main(int argc, char *argv[]){
+	
+	uint32_t X[8];
 
 	//Hash Value from section 6.2
 	//values come from section 5.3.3
@@ -57,9 +59,11 @@ int main(int argc, char *argv[]){
 		0x5be0cd19
 	};
 	
-	if(access (argv[1], F_OK != -1)){
+	//file Declaration
+	FILE* fi;
 
-		FILE* fi;
+	//check if the parameter has been passed
+	if(access (argv[1], F_OK != -1)){
 		//open file given from console
 		fi = fopen(argv[1], "r");
 		//testing by printing the file to screen
@@ -68,18 +72,21 @@ int main(int argc, char *argv[]){
 		//run the secure hash algorithm
  		sha256(fi, H);
 		//close the file
-		fclose(fi);
 	}else {
+		//no file found
 		printf("%s", "No such file");	
 	}
 
-	//printf("%x %x %x %x %x %x %x %x\n", H[0], H[1], H[2], H[3], H[4], H[5], H[6], H[7]);
+	//close the file when done
+	fclose(fi);
+
+//	printf("%x %x %x %x %x %x %x %x\n", X[0], X[1], X[2], X[3], X[4], X[5], X[6], X[7]);
 	
 	return 0;
 }
 
 
-uint32_t* sha256(FILE *fi, uint32_t H[8]){
+uint32_t * sha256(FILE *fi, uint32_t H[8]){
 
 
 	//The current message block
@@ -119,7 +126,7 @@ uint32_t* sha256(FILE *fi, uint32_t H[8]){
 
 		//from page 22
 		for (t = 16; t < 64; t++){
-			sig1(W[t-2]) + W[t-7] +sig0(W[t-15]) + W[t-16];
+			W[t] = sig1(W[t-2]) + W[t-7] +sig0(W[t-15]) + W[t-16];
 		}
 
 		//Initialise a-h, per step 2 on page 22.
@@ -151,7 +158,10 @@ uint32_t* sha256(FILE *fi, uint32_t H[8]){
 		H[6] = g + H[6];
 		H[7] = h + H[7];
 	}
-	printf("%08x %08x %08x %08x %08x %08x %08x %08x\n", H[0], H[1], H[2], H[3], H[4], H[5], H[6], H[7]);
+
+	printf("%s", "Hash Value\n");
+	printf("--------------------------\n");
+	printf("%X %X %X %X %X %X %X %x\n\n", H[0], H[1], H[2], H[3], H[4], H[5], H[6], H[7]);
 
 
 	return H;
@@ -264,17 +274,16 @@ uint32_t SIG_1(uint32_t x){
 }
 
 void printFiletoScreen(FILE* fi){
+	char ch;
 
 	printf("File Content\n");
 	printf("--------------------------\n");
-	char content[MAXCHAR];
-	char contentString[MAXCHAR];
-	long fileSize = getFileSize(fi);
 
-	while(fgets(content, MAXCHAR, fi) != NULL){
-		printf("%s\n", content);
+	while((ch = fgetc(fi)) != EOF){
+		printf("%c", ch);
 	}
-
+	
+	
 	printf("--------------------------\n");
 
 }
