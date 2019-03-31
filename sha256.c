@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <unistd.h>
 
 union msgblock{
 	uint8_t e[64];
@@ -38,26 +39,31 @@ int main(int argc, char *argv[]){
 	//Hash Value from section 6.2
 	//values come from section 5.3.3
 	uint32_t H[8]= {
-		  0x6a09e667,
-		  0xbb67ae85,
-		  0x3c6ef372,
-		  0xa54ff53a,
-		  0x510e527f,
-		  0x9b05688c,
-		  0x1f83d9ab,
-		  0x5be0cd19
+		0x6a09e667,
+		0xbb67ae85,
+		0x3c6ef372,
+		0xa54ff53a,
+		0x510e527f,
+		0x9b05688c,
+		0x1f83d9ab,
+		0x5be0cd19
 	};
+	
+	if(access (argv[1], F_OK != -1)){
 
-	FILE* fi;
-	//open file given from console
-	fi = fopen(argv[1], "r");
-	//Should error check
-	//run the secure hash algorithm
-	sha256(fi, H);
-	//close the file
-	fclose(fi);
+		FILE* fi;
+		//open file given from console
+		fi = fopen(argv[1], "r");
+		//Should error check
+		//run the secure hash algorithm
+ 		sha256(fi, H);
+		//close the file
+		fclose(fi);
+	}else {
+		printf("%s", "No such file");	
+	}
 
-	printf("%x %x %x %x %x %x %x %x\n", H[0], H[1], H[2], H[3], H[4], H[5], H[6], H[7]);
+	//printf("%x %x %x %x %x %x %x %x\n", H[0], H[1], H[2], H[3], H[4], H[5], H[6], H[7]);
 	
 	return 0;
 }
@@ -135,6 +141,7 @@ uint32_t* sha256(FILE *fi, uint32_t H[8]){
 		H[6] = g + H[6];
 		H[7] = h + H[7];
 	}
+	printf("%x %x %x %x %x %x %x %x\n", H[0], H[1], H[2], H[3], H[4], H[5], H[6], H[7]);
 
 
 	return H;
