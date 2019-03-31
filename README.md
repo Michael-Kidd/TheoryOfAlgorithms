@@ -23,23 +23,34 @@ When you run the program, you will run the following command
 This is the command to run the program itself but also to specify the file that you wish to hash. In my example I will use the Sha256.c file itself as a test like so:
 
 ```
-./sha256 sha256.c
+./sha256 test.txt
 ```
 
-once you run this command you will be presented with two options
+once you run this command you will be presented with a screen similar to this:
 
 ```
-1\. Hash FILE
-2\. Exit the program
+File Content
+--------------------------
+abc
+--------------------------
+Hash Value
+--------------------------
+7D55ECC0 23DEF8DC 90DB199 CCF368A0 F2F66788 F13217EB BA407DF1 29af21cb
 ```
 
-The first option, if you select option 1 will show the resulting hash values for the file that you had specified. The second option will exit the program. Hashing the SHA256.c file above at the moment will show the following hash function.
+This is not the correct result and shows an incorrect hash value at the moment, this is partially due to not checking if the bit values have been converted to Big Endian yet. This is to show an example of an incorrect hash value. If we run this same file content through an online version of SHA256 we get:
 
 ```
-E7F1F8B2 1B3E6D7E 6FA417FF 2ED75000 562B184C 47C6E358 F8C5C33A 3A792872
+552bab68 64c7a7b6 9a502ed1 854b9245 c0e1a30f 008aaa0b 281da625 85fdb025
 ```
 
-### Test cases
+After making sure the information is converted to big endian
+
+```
+Code Here
+```
+
+### How the Code works
 
 --------------------------------------------------------------------------------
 
