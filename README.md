@@ -35,19 +35,17 @@ abc
 --------------------------
 Hash Value
 --------------------------
-7D55ECC0 23DEF8DC 90DB199 CCF368A0 F2F66788 F13217EB BA407DF1 29af21cb
+781347F5 FA1A26A5 A095F493 665683CB 48699A34 E329F6DD FD1AE4D0 82410157
 ```
+
+This is the same result that two other student had at this point in the code and have not yet accounted for endianness, by the time I had tried multiple ways to account for this, I had failed to get the correct hash returned, I used some online calculators to test the expected result and they all had the same result, I can only assume that they are correct and that my code is flawed. I could submit the code that I had changed that was still incorrect but as other students have the same result that I have at this point, This tells me that I may not have the right code now, but I am more correct than I was after altering the code. So this would be a good baseline to go back to later.
+
+The reason that the code is not working is an issue with little endian vs big endian values, after trying to account for this, it felt like I was getting further and further from a correct result so reverted.
 
 This is not the correct result and shows an incorrect hash value at the moment, this is partially due to not checking if the bit values have been converted to Big Endian yet. This is to show an example of an incorrect hash value. If we run this same file content through an online version of SHA256 we get:
 
 ```
 552bab68 64c7a7b6 9a502ed1 854b9245 c0e1a30f 008aaa0b 281da625 85fdb025
-```
-
-After making sure the information is converted to big endian
-
-```
-Code Here
 ```
 
 ### How the Code works
@@ -139,8 +137,155 @@ uint32_t a, b, c, d, e, f, g, h;
 uint32_t T1, T2;
 ```
 
+Next we need a loop that will loop through the msgblocks, the purpose of doing this is to pad the message so that it is 512 bits long. That is 448 before padding. This always done, even if the message is already 448 bits.
+
+> "The input message is "padded" (extended) so that its length (in bits) equals to 448 mod 512\. Padding is always performed, even if the length of the message is already 448 mod 512\. Padding is performed as follows: a single "1" bit is appended to the message, and then "0" bits are appended so that the length in bits of the padded message becomes congruent to 448 mod 512\. At least one bit and at most 512 bits are appended. A 64-bit representation of the length of the message is appended to the result of step1\. If the length of the message is greater than 2^64, only the low-order 64 bits will be used. The resulting message (after padding with bits and with b) has a length that is an exact multiple of 512 bits. The input message will have a length that is an exact multiple of 16 (32-bit) words."
+
+To pad 1 bit is added on as a flag, then the remaining bits are added as 0.
+
+```c
+while (nextmsgblock(fi, &M, &S, &nobits)){
+
+  //from page 22, W[t] = M[t] for 0 <= t <= 15
+
+  //Go through the first 16 bytes
+  for(t = 0; t < 16; t++){
+    W[t] = M.t[t];        
+  }
+
+  //Go through the remianing 48 bytes
+  for (t = 16; t < 64; t++){
+    W[t] = sig1(W[t-2]) + W[t-7] +sig0(W[t-15]) + W[t-16];
+  }
+
+  //Initialise a-h, per step 2 on page 22.
+  a = H[0];
+  b = H[1];
+  c = H[2];
+  d = H[3];
+  e = H[4];
+  f = H[5];
+  g = H[6];
+  h = H[7];
+
+  //step 3.
+  for(t = 0; t < 64; t++){
+    T1 = h +SIG_1(e) + Ch(e, f, g) + K[t] + W[t];
+    T2 = SIG_0(a) + Maj(a,b,c);
+
+    h = g;
+    g = f;
+    f = e;
+    e = d + T1;
+    d = c;
+    c = b;
+    b = a;
+    a = T1 + T2;
+  }    
+
+  //step 4
+  H[0] = a + H[0];
+  H[1] = b + H[1];
+  H[2] = c + H[2];
+  H[3] = d + H[3];
+  H[4] = e + H[4];
+  H[5] = f + H[5];
+  H[6] = g + H[6];
+  H[7] = h + H[7];
+}
+```
+
+With the padding of the message block, we check if the Status we set in the enum earlier is read as finished, this would indicate that the entire file is finished and has been padded, so the loop can end.
+
+When ever padding occurs, the first step is to add 1 bit then pad the remaining bits as 0\. it will then test if another full block of padding is needed, if it is needed it will set the first 56 bytes to 0 bits. it will then set the remaining 64 bits to the number of bits in the file, then will end the loop.
+
+the code is as follows.
+
+```c
+//Number of bytes we get from file
+    uint64_t nobytes;
+
+    int i;
+
+    //if all messages blocks done
+    if (*S == FINISH)
+        return 0;
+
+    //Check if we need another block of full padding
+    if(*S == PAD0 || *S == PAD1){
+        //set the first 56 bytes to zero bits
+        for(i = 0; i < 56; i++){
+            M->e[i] = 0x00;
+        }
+        //set the last 64 bits to the number of the bits in the file, - Big endian
+        M->s[7] = *nobits;
+        //tell the status we are finished
+        *S = FINISH;
+
+        //Set the first bit of M to 1
+        if (*S == PAD1){
+            M->e[0] = 0x80;
+        }
+        //Keep the loop going for another iteration
+        return 1;
+    }
+
+    //if we get down here, then we still havent finished reading the file
+    nobytes = fread(M->e, 1, 64, fi);
+
+    //Keep track of the number of bytes we have read
+    *nobits = *nobits + (nobytes * 8);
+    //If we read less than 56 bytes, we can put all padding in this block
+    if(nobytes < 56){
+        M->e[nobytes] = 0x80;
+        //get the last 8 bytes
+        while(nobytes < 56){
+            nobytes = nobytes + 1;
+            //set all bytes to 0
+            M->e[nobytes] = 0x00;
+        }
+        //Append the file size in bits as a (big endian) unsigned 64 bit int
+        M->s[7] = *nobits;
+        *S = FINISH;
+    }
+    //otherwise, check if we can put some padding in this block
+    else if (nobytes < 64){
+        //tell S we need one more message block with padding but wont have the 1 bit.
+        *S = PAD0;
+        //put the one bit in this block
+        M->e[nobytes]  = 0x80;
+        //pad the rest of the block with zero bits    
+        while(nobytes < 64){
+            nobytes = nobytes +1;
+            M->e[nobytes] = 0x00;
+        }
+    //otherwise check if we are at the end of the file    
+    } else if(feof(fi)){
+        //tell S that we need a message block with all the padding.
+        *S = PAD1;
+    }
+
+    //if we get this far, then we will return 1, so that the function will be called again
+return 1;
+```
+
+one of the main issues that I found with troubleshooting this program is simply because the hash method works so well and that it is difficult to revert, that I cannot tell if my code is closer or further away from being correct. This is because any single change in the message has a dramatic change with the resulting hash that is returned.
+
+Below is a video of the program running and a few simple examples of online tests<br>
+
+[![Video of running program](https://theaudacitytopodcast.b-cdn.net/wp-content/uploads/2014/08/YouTube-logo-full_color-300x300.jpg)](https://youtu.be/RHfaocmBH_g)
+
 ### Resources
 
 --------------------------------------------------------------------------------
 
-<https://crypto.stackexchange.com/questions/41496/how-to-generate-the-sha-2-constants>
+<https://crypto.stackexchange.com/questions/41496/how-to-generate-the-sha-2-constants><br>
+<https://ws680.nist.gov/publication/get_pdf.cfm?pub_id=919060><br>
+<https://crypto.stackexchange.com/questions/9369/how-is-input-message-for-sha-2-padded> <https://www.webopedia.com/TERM/B/big_endian.html><br>
+<https://betterexplained.com/articles/understanding-big-and-little-endian-byte-order/><br>
+<https://stackoverflow.com/questions/19275955/convert-little-endian-to-big-endian/19276193><br>
+
+#### Sha256 testers
+
+<https://emn178.github.io/online-tools/sha256_checksum.html><br>
+<https://passwordsgenerator.net/sha256-hash-generator/>
